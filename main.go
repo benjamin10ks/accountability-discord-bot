@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,15 +17,78 @@ var (
 	ChannelID = os.Getenv("DISCORD_CHANNEL_ID")
 )
 
+type PushPayload struct {
+	Commits []struct {
+		Message string `json:"message"`
+		Author  struct {
+			Name string `json:"name"`
+		} `json:"author"`
+	} `json:"commits"`
+}
+
+type CommitResponse []struct {
+	Commit struct {
+		Message string `json:"message"`
+	} `json:"commit"`
+}
+
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 
-	body, _ := io.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+	}
 	log.Printf("Received webhook: %s", string(body))
+
+	var payload PushPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		log.Printf("Error parsing JSON: %v", err)
+	}
+
 	w.WriteHeader(http.StatusOK)
+}
+
+func checkDailyCommits() (*CommitResponse, error) {
+	// TODO make username and repo dynamic
+	username := "benjamin10ks"
+	repo := "ac}countability-discord-bot"
+	since := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+
+	URL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?since=%s", username, repo, since)
+	res, err := http.Get(URL)
+	if err != nil {
+		return nil, fmt.Errorf("error making http request: %v", err)
+	}
+	defer func() {
+		err := res.Body.Close()
+		if err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
+
+	data, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading response body: %v", err)
+	}
+
+	var commits CommitResponse
+	if err = json.Unmarshal(data, &commits); err != nil {
+		return nil, fmt.Errorf("error parsing json: %v", err)
+	}
+
+	return &commits, nil
+}
+
+func sendMessage(dg *discordgo.Session, channelID, message string) {
+	_, err := dg.ChannelMessageSend(channelID, message)
+	if err != nil {
+		log.Printf("Error sending message: %v", err)
+	}
+	log.Printf("Sent message: %s", message)
 }
 
 func main() {
@@ -56,19 +121,24 @@ func main() {
 		for {
 			now := time.Now()
 			target := time.Date(now.Year(), now.Month(), now.Day(), 20, 0, 0, 0, now.Location())
+			// testing 1 minute
+			// target := time.Now().Add(1 * time.Minute)
 			if now.After(target) {
 				target = target.Add(24 * time.Hour)
 			}
 
 			time.Sleep(time.Until(target))
 
-			// check Github commits for today
-			// if there are commits, send a message to the Discord channel
-			// if there are no commits, do nothing
-			_, err := dg.ChannelMessageSend(ChannelID, "Daily commit check: No commits found for today.")
+			commits, err := checkDailyCommits()
 			if err != nil {
-				log.Printf("Error sending message: %v", err)
+				log.Printf("Error checking commits: %v", err)
 			}
+			if len(*commits) > 0 {
+				sendMessage(dg, ChannelID, fmt.Sprintf("Daily commit check: %d commits found for today!", len(*commits)))
+			} else {
+				sendMessage(dg, ChannelID, "Ur a bum get on it")
+			}
+
 		}
 	}()
 
