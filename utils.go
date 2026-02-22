@@ -65,3 +65,8 @@ func checkDailyCommits(userID string) (*CommitResponse, error) {
 
 	return &commits, nil
 }
+
+// TODO: implement this function to set up GitHub webhooks for the registered repositories
+func SetWebhook(owner, repo string) error {
+	return nil
+}
