@@ -136,18 +136,41 @@ func main() {
 
 			time.Sleep(time.Until(target))
 
-			userID := dg.State.User.ID
-
-			commits, err := checkDailyCommits()
+			db, err := sql.Open("sqlite3", "./bot.db")
 			if err != nil {
-				log.Printf("Error checking commits: %v", err)
-			}
-			if len(*commits) > 0 {
-				sendMessage(dg, ChannelID, fmt.Sprintf("<@%s> Daily commit check: %d commits found for today!", userID, len(*commits)))
-			} else {
-				sendMessage(dg, ChannelID, fmt.Sprintf("Ur a bum get on it <@%s>", userID))
+				log.Printf("Error opening database: %v", err)
 			}
 
+			rows, err := db.Query("SELECT discord_user_id FROM repo_registrations")
+			if err != nil {
+				log.Printf("Error querying database: %v", err)
+				continue
+			}
+			for rows.Next() {
+				var userID string
+				err = rows.Scan(&userID)
+				if err != nil {
+					log.Printf("Error scanning row: %v", err)
+				}
+				commits, err := checkDailyCommits(userID)
+				if err != nil {
+					log.Printf("Error checking commits: %v", err)
+				}
+				if len(*commits) > 0 {
+					sendMessage(dg, ChannelID, fmt.Sprintf("<@%s> Daily commit check: %d commits found for today!", userID, len(*commits)))
+				} else {
+					sendMessage(dg, ChannelID, fmt.Sprintf("Ur a bum get on it <@%s>", userID))
+				}
+				err = rows.Close()
+				if err != nil {
+					log.Printf("Error closing rows: %v", err)
+				}
+			}
+
+			err = db.Close()
+			if err != nil {
+				log.Printf("Error closing database: %v", err)
+			}
 		}
 	}()
 

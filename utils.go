@@ -20,13 +20,13 @@ func sendMessage(dg *discordgo.Session, channelID, message string) {
 	log.Printf("Sent message: %s", message)
 }
 
-func checkDailyCommits() (*CommitResponse, error) {
+func checkDailyCommits(userID string) (*CommitResponse, error) {
 	db, err := sql.Open("sqlite3", "./bot.db")
 	if err != nil {
 		log.Printf("Error opening database: %v", err)
 	}
 
-	row := db.QueryRow("SELECT owner, repo_name FROM repo_registrations LIMIT 1") // Temporary: Only checks the first registered repo
+	row := db.QueryRow("SELECT owner, repo_name FROM repo_registrations WHERE discord_user_id = ?", userID)
 
 	var owner, repo string
 	err = row.Scan(&owner, &repo)
