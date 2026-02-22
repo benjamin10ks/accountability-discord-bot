@@ -12,7 +12,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func sendMessage(dg *discordgo.Session, channelID, message string) {
+func sendMessage(dg *discordgo.Session, channelID, userID, message string) {
 	_, err := dg.ChannelMessageSend(channelID, message)
 	if err != nil {
 		log.Printf("Error sending message: %v", err)

@@ -136,14 +136,16 @@ func main() {
 
 			time.Sleep(time.Until(target))
 
+			userID := dg.State.User.ID
+
 			commits, err := checkDailyCommits()
 			if err != nil {
 				log.Printf("Error checking commits: %v", err)
 			}
 			if len(*commits) > 0 {
-				sendMessage(dg, ChannelID, fmt.Sprintf("Daily commit check: %d commits found for today!", len(*commits)))
+				sendMessage(dg, ChannelID, userID, fmt.Sprintf("Daily commit check: %d commits found for today!", len(*commits)))
 			} else {
-				sendMessage(dg, ChannelID, "Ur a bum get on it")
+				sendMessage(dg, ChannelID, userID, "Ur a bum get on it")
 			}
 
 		}

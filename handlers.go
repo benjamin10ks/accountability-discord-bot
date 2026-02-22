@@ -26,6 +26,8 @@ func handleWebhook(dg *discordgo.Session, w http.ResponseWriter, r *http.Request
 	if err := json.Unmarshal(body, &payload); err != nil {
 		log.Printf("Error parsing JSON: %v", err)
 	}
-	sendMessage(dg, ChannelID, fmt.Sprintf("New commit by %s: %s", payload.Commits[0].Author.Name, payload.Commits[0].Message))
+	userID := dg.State.User.ID
+
+	sendMessage(dg, ChannelID, userID, fmt.Sprintf("New commit by %s: %s", payload.Commits[0].Author.Name, payload.Commits[0].Message))
 	w.WriteHeader(http.StatusOK)
 }
