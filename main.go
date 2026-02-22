@@ -55,7 +55,7 @@ func handleWebhook(dg *discordgo.Session, w http.ResponseWriter, r *http.Request
 func checkDailyCommits() (*CommitResponse, error) {
 	// TODO make username and repo dynamic
 	username := "benjamin10ks"
-	repo := "ac}countability-discord-bot"
+	repo := "accountability-discord-bot"
 	since := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
 
 	URL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?since=%s", username, repo, since)
