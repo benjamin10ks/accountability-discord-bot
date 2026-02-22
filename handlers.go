@@ -42,14 +42,10 @@ func handleWebhook(dg *discordgo.Session, w http.ResponseWriter, r *http.Request
 	}()
 
 	var userID string
-	err = db.QueryRow("SELECT discord_user_id FROM repo_registrations WHERE owner = ?", owner).Scan(&userID)
+	row := db.QueryRow("SELECT discord_user_id FROM repo_registrations WHERE owner = ?", owner)
+	err = row.Scan(&userID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			log.Printf("No registered user for owner: %s", owner)
-		} else {
-			log.Printf("Error querying database: %v", err)
-		}
-		return
+		log.Printf("Error querying database: %v", err)
 	}
 
 	sendMessage(dg, ChannelID, fmt.Sprintf("<@%s> New commit by %s: %s", userID, owner, payload.Commits[0].Message))
