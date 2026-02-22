@@ -32,6 +32,21 @@ type CommitResponse []struct {
 	} `json:"commit"`
 }
 
+var commands = []*discordgo.ApplicationCommand{
+	{
+		Name:        "register",
+		Description: "Register a GitHub repository to watch",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionString,
+				Name:        "repo",
+				Description: "Repository in format owner/repo",
+				Required:    true,
+			},
+		},
+	},
+}
+
 func handleWebhook(dg *discordgo.Session, w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -83,19 +98,38 @@ func checkDailyCommits() (*CommitResponse, error) {
 	return &commits, nil
 }
 
-func sendMessage(dg *discordgo.Session, channelID, message string) {
-	_, err := dg.ChannelMessageSend(channelID, message)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-	}
-	log.Printf("Sent message: %s", message)
-}
-
 func main() {
 	dg, err := discordgo.New("Bot " + BotToken)
 	if err != nil {
 		log.Fatalf("Error creating Discord session: %v", err)
 	}
+
+	runMigrations()
+
+	// Registers commands
+	dg.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if i.Type != discordgo.InteractionApplicationCommand {
+			return
+		}
+
+		switch i.ApplicationCommandData().Name {
+		case "register":
+			repoInput := i.ApplicationCommandData().Options[0].StringValue()
+			userID := i.Member.User.ID
+
+			log.Printf("Registering repo '%s' for user %s", repoInput, userID)
+
+			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: fmt.Sprintf("<@%s> Now watching %s", userID, repoInput),
+				},
+			})
+			if err != nil {
+				log.Printf("Error responding to interaction: %v", err)
+			}
+		}
+	})
 
 	err = dg.Open()
 	if err != nil {
@@ -107,6 +141,15 @@ func main() {
 			log.Printf("Error closing Discord session: %v", err)
 		}
 	}()
+
+	appID := dg.State.User.ID
+
+	for _, cmd := range commands {
+		_, err := dg.ApplicationCommandCreate(appID, "", cmd)
+		if err != nil {
+			log.Fatalf("Cannot create '%v' command: %v", cmd.Name, err)
+		}
+	}
 
 	go func() {
 		http.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {

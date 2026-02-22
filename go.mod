@@ -2,7 +2,10 @@ module github.com/benjamin10ks/AccountablilityDiscordBot
 
 go 1.24.5
 
-require github.com/bwmarrin/discordgo v0.29.0
+require (
+	github.com/bwmarrin/discordgo v0.29.0
+	github.com/mattn/go-sqlite3 v1.14.34
+)
 
 require (
 	github.com/gorilla/websocket v1.4.2 // indirect
