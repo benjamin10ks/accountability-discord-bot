@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,12 +21,27 @@ func sendMessage(dg *discordgo.Session, channelID, message string) {
 }
 
 func checkDailyCommits() (*CommitResponse, error) {
-	// TODO make username and repo dynamic
-	username := "benjamin10ks"
-	repo := "accountability-discord-bot"
+	db, err := sql.Open("sqlite3", "./bot.db")
+	if err != nil {
+		log.Printf("Error opening database: %v", err)
+	}
+
+	row := db.QueryRow("SELECT owner, repo_name FROM repo_registrations LIMIT 1") // Temporary: Only checks the first registered repo
+
+	var owner, repo string
+	err = row.Scan(&owner, &repo)
+	if err != nil {
+		return nil, fmt.Errorf("no repo registered")
+	}
+
+	err = db.Close()
+	if err != nil {
+		log.Printf("Error closing database: %v", err)
+	}
+
 	since := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
 
-	URL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?since=%s", username, repo, since)
+	URL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits?since=%s", owner, repo, since)
 	res, err := http.Get(URL)
 	if err != nil {
 		return nil, fmt.Errorf("error making http request: %v", err)

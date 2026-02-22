@@ -1,10 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -49,9 +51,37 @@ func main() {
 			repoInput := i.ApplicationCommandData().Options[0].StringValue()
 			userID := i.Member.User.ID
 
+			parts := strings.Split(repoInput, "/")
+			if len(parts) != 2 {
+				log.Printf("Invalid repo format: %s", repoInput)
+				return
+			}
+
+			owner := parts[0]
+			repo := parts[1]
+
+			db, err := sql.Open("sqlite3", "./bot.db")
+			if err != nil {
+				log.Printf("Error opening database: %v", err)
+			}
+
+			_, err = db.Exec(`
+				INSERT OR REPLACE INTO repo_registrations (discord_user_id, owner, repo_name) 
+				VALUES (?, ?, ?)
+				ON CONFLICT(discord_user_id) 
+				DO UPDATE SET owner=excluded.owner, repo_name=excluded.repo_name`,
+				userID, owner, repo)
+			if err != nil {
+				log.Printf("Error inserting/updating repo registration: %v", err)
+			}
+			err = db.Close()
+			if err != nil {
+				log.Printf("Error closing database: %v", err)
+			}
+
 			log.Printf("Registering repo '%s' for user %s", repoInput, userID)
 
-			err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: fmt.Sprintf("<@%s> Now watching %s", userID, repoInput),
