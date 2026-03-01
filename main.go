@@ -26,6 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating Discord session: %v", err)
 	}
+	log.Println("Discord session created successfully.")
 
 	db, err := sql.Open("sqlite3", "./bot.db")
 	if err != nil {
@@ -37,13 +38,16 @@ func main() {
 			log.Printf("Error closing database: %v", err)
 		}
 	}()
+	log.Println("Database connection established successfully.")
 
 	err = runMigrations(db)
 	if err != nil {
 		log.Fatalf("Error running migrations: %v", err)
 	}
+	log.Println("Database migrations completed successfully.")
 
 	registerCommands(dg)
+	log.Println("Commands registered successfully.")
 
 	err = dg.Open()
 	if err != nil {
@@ -55,6 +59,7 @@ func main() {
 			log.Printf("Error closing Discord session: %v", err)
 		}
 	}()
+	log.Println("Discord session opened successfully.")
 
 	appID := dg.State.User.ID
 
