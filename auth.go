@@ -69,7 +69,6 @@ func exchangeCodeForToken(code string) (string, error) {
 	return result.AccessToken, nil
 }
 
-// TODO: implement this function to set up GitHub webhooks for the registered repositories
 func createWebhook(db *sql.DB, accessToken, owner, repo, webhookURL string) error {
 	log.Printf("Creating webhook with secret: %s", WebhookSecret)
 	payload := map[string]any{
