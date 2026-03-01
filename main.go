@@ -87,6 +87,7 @@ func main() {
 	}()
 
 	go scheduleDailyChecks(db, dg)
+	log.Println("Scheduled daily checks successfully.")
 
 	log.Println("Bot is now running.")
 
