@@ -46,7 +46,14 @@ func handleWebhook(db *sql.DB, dg *discordgo.Session, w http.ResponseWriter, r *
 	log.Printf("Received webhook: %s", string(body))
 
 	signature := r.Header.Get("X-Hub-Signature-256")
+	if signature == "" {
+		log.Printf("Missing signature header")
+		http.Error(w, "Missing signature", http.StatusBadRequest)
+		return
+	}
+
 	if !verifySignature(WebhookSecret, body, signature) {
+		log.Printf("Invalid signature: %s", signature)
 		http.Error(w, "Invalid signature", http.StatusUnauthorized)
 		return
 	}
