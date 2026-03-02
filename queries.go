@@ -39,12 +39,11 @@ func registerRepo(db *sql.DB, userID, owner, repo, channeltID string) error {
 	return tx.Commit()
 }
 
-func getAllRegisteredUserIDs(db *sql.DB) ([]struct{ UserID, ChannelID string }, error) {
+func getAllRegisteredUserIDs(db *sql.DB) ([]struct{ UserID, ChannelID, Owner, Repo string }, error) {
 	rows, err := db.Query(`
 		SELECT rr.user_id, rr.channel_id, r.owner, r.name
 		FROM repo_registrations rr
 		JOIN repos r ON rr.repo_id = r.id
-		JOIN users u ON rr.user_id = u.id
 		`)
 	if err != nil {
 		return nil, err
@@ -56,10 +55,10 @@ func getAllRegisteredUserIDs(db *sql.DB) ([]struct{ UserID, ChannelID string }, 
 		}
 	}()
 
-	var users []struct{ UserID, ChannelID string }
+	var users []struct{ UserID, ChannelID, Owner, Repo string }
 	for rows.Next() {
-		var user struct{ UserID, ChannelID string }
-		if err := rows.Scan(&user.UserID, &user.ChannelID); err != nil {
+		var user struct{ UserID, ChannelID, Owner, Repo string }
+		if err := rows.Scan(&user.UserID, &user.ChannelID, &user.Owner, &user.Repo); err != nil {
 			log.Printf("Error scanning row: %v", err)
 			continue
 		}
