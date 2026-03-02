@@ -58,7 +58,7 @@ func main() {
 	}()
 	log.Println("Discord session opened successfully.")
 
-	registerCommands(dg)
+	registerCommands(dg, db)
 	log.Println("Commands registered successfully.")
 
 	appID := dg.State.User.ID
@@ -71,7 +71,7 @@ func main() {
 	}
 
 	http.HandleFunc("/github/callback", func(w http.ResponseWriter, r *http.Request) {
-		handleGithubCallback(db, w, r)
+		handleGithubCallback(db, dg, w, r)
 	})
 
 	http.HandleFunc("/webhook", func(w http.ResponseWriter, r *http.Request) {

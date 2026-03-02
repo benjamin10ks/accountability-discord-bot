@@ -124,3 +124,26 @@ func createWebhook(db *sql.DB, accessToken, owner, repo, webhookURL string) erro
 
 	return storeWebhookID(db, owner, repo, result.ID, WebhookSecret)
 }
+
+func deleteGitHubWebhook(accessToken, owner, repo string, webhookID int64) error {
+	req, err := http.NewRequest("DELETE",
+		fmt.Sprintf("https://api.github.com/repos/%s/%s/hooks/%d", owner, repo, webhookID),
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("failed to delete webhook, status: %d", resp.StatusCode)
+	}
+	return nil
+}

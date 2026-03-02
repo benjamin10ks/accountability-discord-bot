@@ -88,7 +88,7 @@ func handleWebhook(db *sql.DB, dg *discordgo.Session, w http.ResponseWriter, r *
 	w.WriteHeader(http.StatusOK)
 }
 
-func handleGithubCallback(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func handleGithubCallback(db *sql.DB, dg *discordgo.Session, w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
 
@@ -128,6 +128,7 @@ func handleGithubCallback(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error registering repo: %v", err)
 	}
 	log.Printf("Registered repo %s/%s for user %s in channel %s", pending.Owner, pending.Repo, pending.DiscordUserID, pending.ChannelID)
+	sendMessage(dg, pending.ChannelID, fmt.Sprintf("<@%s> Successfully registered repo %s/%s for tracking!", pending.DiscordUserID, pending.Owner, pending.Repo))
 
 	log.Printf("Successfully authenticated user %s for repo %s/%s", pending.DiscordUserID, pending.Owner, pending.Repo)
 
