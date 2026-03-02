@@ -28,7 +28,7 @@ func main() {
 	}
 	log.Println("Discord session created successfully.")
 
-	db, err := sql.Open("sqlite3", "./bot.db")
+	db, err := sql.Open("sqlite", "./bot.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}

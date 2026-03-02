@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func runMigrations(db *sql.DB) error {
