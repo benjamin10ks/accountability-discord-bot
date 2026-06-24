@@ -67,9 +67,12 @@ func getAllRegisteredUserIDs(db *sql.DB) ([]struct{ UserID, ChannelID, Owner, Re
 	return users, nil
 }
 
-func getReposByUserID(db *sql.DB, userID string) ([]struct{ Owner, Name, ChannelID string }, error) {
+func getReposByUserID(db *sql.DB, userID string) ([]struct {
+	RepoID                 int
+	Owner, Name, ChannelID string
+}, error) {
 	rows, err := db.Query(`
-		SELECT r.owner, r.name, rr.channel_id
+		SELECT r.id, r.owner, r.name, rr.channel_id
 		FROM repos r
 		JOIN repo_registrations rr ON r.id = rr.repo_id
 		WHERE rr.user_id = ?`, userID)
@@ -83,14 +86,21 @@ func getReposByUserID(db *sql.DB, userID string) ([]struct{ Owner, Name, Channel
 		}
 	}()
 
-	var results []struct{ Owner, Name, ChannelID string }
+	var results []struct {
+		RepoID                 int
+		Owner, Name, ChannelID string
+	}
 	for rows.Next() {
+		var repoID int
 		var owner, name, channelID string
-		if err := rows.Scan(&owner, &name, &channelID); err != nil {
+		if err := rows.Scan(&repoID, &owner, &name, &channelID); err != nil {
 			log.Printf("Error scanning row: %v", err)
 			continue
 		}
-		results = append(results, struct{ Owner, Name, ChannelID string }{Owner: owner, Name: name, ChannelID: channelID})
+		results = append(results, struct {
+			RepoID                 int
+			Owner, Name, ChannelID string
+		}{RepoID: repoID, Owner: owner, Name: name, ChannelID: channelID})
 	}
 	return results, nil
 }
@@ -143,6 +153,83 @@ func storeWebhookID(db *sql.DB, owner, repo string, webhookID int64, secret stri
 		WHERE owner = ? AND name = ?`,
 		webhookID, secret, owner, repo)
 	return err
+}
+
+func getStreak(db *sql.DB, userID string, repoID int) (currentStreak int, lastCommitDate string, err error) {
+	err = db.QueryRow(`
+		SELECT current_streak, COALESCE(last_commit_date, '')
+		FROM streaks WHERE user_id = ? AND repo_id = ?`,
+		userID, repoID).Scan(&currentStreak, &lastCommitDate)
+	if err == sql.ErrNoRows {
+		return 0, "", nil
+	}
+	return currentStreak, lastCommitDate, err
+}
+
+func setStreak(db *sql.DB, userID string, repoID int, currentStreak int, lastCommitDate string) error {
+	_, err := db.Exec(`
+		INSERT INTO streaks (user_id, repo_id, current_streak, last_commit_date)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(user_id, repo_id) DO UPDATE SET
+			current_streak = excluded.current_streak,
+			last_commit_date = excluded.last_commit_date`,
+		userID, repoID, currentStreak, lastCommitDate)
+	return err
+}
+
+func recordDailyActivity(db *sql.DB, userID string, repoID int, date string, hadCommit bool) error {
+	hadCommitInt := 0
+	if hadCommit {
+		hadCommitInt = 1
+	}
+	_, err := db.Exec(`
+		INSERT INTO daily_activity (user_id, repo_id, activity_date, had_commit)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(user_id, repo_id, activity_date) DO UPDATE SET had_commit = excluded.had_commit`,
+		userID, repoID, date, hadCommitInt)
+	return err
+}
+
+func getWeeklyActivity(db *sql.DB, userID, since string) ([]struct {
+	Owner, Name           string
+	ActiveDays, TotalDays int
+	Streak                int
+}, error) {
+	rows, err := db.Query(`
+		SELECT r.owner, r.name, SUM(da.had_commit), COUNT(*), COALESCE(s.current_streak, 0)
+		FROM daily_activity da
+		JOIN repos r ON da.repo_id = r.id
+		LEFT JOIN streaks s ON s.user_id = da.user_id AND s.repo_id = da.repo_id
+		WHERE da.user_id = ? AND da.activity_date >= ?
+		GROUP BY r.id`, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("Error closing rows: %v", err)
+		}
+	}()
+
+	var results []struct {
+		Owner, Name           string
+		ActiveDays, TotalDays int
+		Streak                int
+	}
+	for rows.Next() {
+		var owner, name string
+		var activeDays, totalDays, streak int
+		if err := rows.Scan(&owner, &name, &activeDays, &totalDays, &streak); err != nil {
+			log.Printf("Error scanning row: %v", err)
+			continue
+		}
+		results = append(results, struct {
+			Owner, Name           string
+			ActiveDays, TotalDays int
+			Streak                int
+		}{Owner: owner, Name: name, ActiveDays: activeDays, TotalDays: totalDays, Streak: streak})
+	}
+	return results, nil
 }
 
 func unregisterRepo(db *sql.DB, userID, owner, repo string) (webhookID int64, shouldDelete bool, err error) {
