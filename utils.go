@@ -128,6 +128,7 @@ func scheduleDailyChecks(db *sql.DB, dg *discordgo.Session) {
 			}
 		}
 
+		time.Sleep(time.Minute)
 	}
 }
 
