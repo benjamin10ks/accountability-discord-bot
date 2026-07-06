@@ -124,6 +124,41 @@ func registerCommands(dg *discordgo.Session, db *sql.DB) {
 				},
 			})
 
+		case "list":
+			userID := i.Member.User.ID
+
+			repos, err := getReposByUserID(db, userID)
+			if err != nil {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("Error listing repositories: %v", err),
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			var content string
+			if len(repos) == 0 {
+				content = "You have no registered repositories."
+			} else {
+				var b strings.Builder
+				b.WriteString("Your registered repositories:\n")
+				for _, r := range repos {
+					fmt.Fprintf(&b, "- %s/%s\n", r.Owner, r.Name)
+				}
+				content = b.String()
+			}
+
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: content,
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+
 		}
 	})
 }
@@ -152,5 +187,9 @@ var commands = []*discordgo.ApplicationCommand{
 				Required:    true,
 			},
 		},
+	},
+	{
+		Name:        "list",
+		Description: "List your registered repositories",
 	},
 }
